@@ -3,6 +3,7 @@ package org.example.carrentapp.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.example.carrentapp.dto.ReservationDto;
 import org.example.carrentapp.entity.Reservation;
 import org.example.carrentapp.service.ReservationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,78 +25,84 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class ReservationControllerTest {
 
-    @Mock private ReservationService reservationService;
-    @InjectMocks private ReservationController controller;
+    @Mock
+    private ReservationService reservationService;
+
+    @InjectMocks
+    private ReservationController controller;
 
     private MockMvc mvc;
     private ObjectMapper mapper;
-    private Reservation reservation;
+    private Reservation sampleReservation;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        // Prepare an ObjectMapper that knows about Java 8 dates
+        // ObjectMapper z modułem do LocalDate
         mapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule());
 
-        // Register it with MockMvc
         mvc = MockMvcBuilders
                 .standaloneSetup(controller)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(mapper))
                 .build();
 
-        reservation = new Reservation();
-        reservation.setId(3L);
-        reservation.setStartDate(LocalDate.of(2025, 9, 10));
-        reservation.setEndDate(LocalDate.of(2025, 9, 20));
+        // przykładowa encja do GET-ów
+        sampleReservation = new Reservation();
+        sampleReservation.setId(3L);
+        sampleReservation.setStartDate(LocalDate.of(2025, 9, 10));
+        sampleReservation.setEndDate(LocalDate.of(2025, 9, 20));
     }
 
     @Test
     void getAllReservations_shouldReturnJsonArray() throws Exception {
         when(reservationService.getAllReservations())
-                .thenReturn(Collections.singletonList(reservation));
+                .thenReturn(Collections.singletonList(sampleReservation));
 
         mvc.perform(get("/api/reservations"))
                 .andExpect(status().isOk())
                 .andExpect(content().json(
-                        mapper.writeValueAsString(Collections.singletonList(reservation))
+                        mapper.writeValueAsString(Collections.singletonList(sampleReservation))
                 ));
     }
 
     @Test
     void createReservation_shouldReturnCreatedWithLocationHeader() throws Exception {
-        Reservation toCreate = new Reservation();
-        toCreate.setStartDate(LocalDate.of(2025, 10, 1));
-        toCreate.setEndDate(LocalDate.of(2025, 10, 5));
+        // przygotuj DTO do wysłania
+        ReservationDto dto = new ReservationDto();
+        dto.setCarId(5L);
+        dto.setUserId(7L);
+        dto.setStartDate(LocalDate.of(2025, 10, 1));
+        dto.setEndDate(LocalDate.of(2025, 10, 5));
 
-        Reservation created = new Reservation();
-        created.setId(8L);
-        created.setStartDate(toCreate.getStartDate());
-        created.setEndDate(toCreate.getEndDate());
-
-        when(reservationService.createReservation(any())).thenReturn(created);
+        // stub: usługa zwraca nowy ID
+        when(reservationService.createReservation(any(ReservationDto.class)))
+                .thenReturn(8L);
 
         mvc.perform(post("/api/reservations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(toCreate)))
+                        .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/reservations/8"))
-                .andExpect(content().json(mapper.writeValueAsString(created)));
+                // brak body przy create
+                .andExpect(content().string(""));
     }
 
     @Test
     void getReservationById_whenFound_shouldReturnReservation() throws Exception {
-        when(reservationService.getReservationById(3L)).thenReturn(reservation);
+        when(reservationService.getReservationById(3L))
+                .thenReturn(sampleReservation);
 
         mvc.perform(get("/api/reservations/3"))
                 .andExpect(status().isOk())
-                .andExpect(content().json(mapper.writeValueAsString(reservation)));
+                .andExpect(content().json(mapper.writeValueAsString(sampleReservation)));
     }
 
     @Test
     void getReservationById_whenNotFound_shouldReturn404() throws Exception {
-        when(reservationService.getReservationById(99L)).thenReturn(null);
+        when(reservationService.getReservationById(99L))
+                .thenReturn(null);
 
         mvc.perform(get("/api/reservations/99"))
                 .andExpect(status().isNotFound());
@@ -103,21 +110,22 @@ class ReservationControllerTest {
 
     @Test
     void updateReservation_whenFound_shouldReturnUpdated() throws Exception {
+        // przygotuj oczekiwany wynik
         Reservation updated = new Reservation();
         updated.setId(3L);
         updated.setStartDate(LocalDate.of(2025, 11, 1));
         updated.setEndDate(LocalDate.of(2025, 11, 7));
 
-        // Stub for any payload matching a Reservation
+        // stub serwisu: przy poprawnym id i dowolnym DTO zwracamy obiekt
         when(reservationService.updateReservation(
                 eq(3L),
-                any(Reservation.class)))
+                any(ReservationDto.class)))
                 .thenReturn(updated);
 
-        // Build a JSON body for the update
-        Reservation payload = new Reservation();
-        payload.setStartDate(LocalDate.of(2025, 11, 1));
-        payload.setEndDate(LocalDate.of(2025, 11, 7));
+        // payload jako DTO
+        ReservationDto payload = new ReservationDto();
+        payload.setStartDate(updated.getStartDate());
+        payload.setEndDate(updated.getEndDate());
 
         mvc.perform(put("/api/reservations/3")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -128,23 +136,30 @@ class ReservationControllerTest {
 
     @Test
     void updateReservation_whenNotFound_shouldReturn404() throws Exception {
-        // Use eq() for the Long and any(Reservation.class) for the payload:
         when(reservationService.updateReservation(
                 eq(123L),
-                any(Reservation.class)))
+                any(ReservationDto.class)))
                 .thenReturn(null);
 
         mvc.perform(put("/api/reservations/123")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new Reservation())))
+                        .content(mapper.writeValueAsString(new ReservationDto())))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    void deleteReservation_shouldAlwaysReturnOk() throws Exception {
+    void deleteReservation_whenDeleted_shouldReturnOk() throws Exception {
         when(reservationService.deleteReservation(3L)).thenReturn(true);
 
         mvc.perform(delete("/api/reservations/3"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void deleteReservation_whenNotDeleted_shouldReturn404() throws Exception {
+        when(reservationService.deleteReservation(99L)).thenReturn(false);
+
+        mvc.perform(delete("/api/reservations/99"))
+                .andExpect(status().isNotFound());
     }
 }

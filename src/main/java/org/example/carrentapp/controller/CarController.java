@@ -28,6 +28,12 @@ public class CarController {
         return ResponseEntity.ok(carService.getAllCars());
     }
 
+    @GetMapping("/available")
+    @Operation(summary = "List available cars", description = "Retrieves only cars with available=true.")
+    public ResponseEntity<List<Car>> getAvailableCars() {
+        return ResponseEntity.ok(carService.findAvailableCars());
+    }
+
     @PostMapping
     @Operation(summary = "Create a new car", description = "Adds a new car to the database.")
     public ResponseEntity<Car> createCar(@RequestBody Car car) {

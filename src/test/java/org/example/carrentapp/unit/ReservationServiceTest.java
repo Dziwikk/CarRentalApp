@@ -1,7 +1,14 @@
-package org.example.carrentapp.all;
+// src/test/java/org/example/carrentapp/unit/ReservationServiceTest.java
+package org.example.carrentapp.unit;
 
+import jakarta.persistence.EntityNotFoundException;
+import org.example.carrentapp.dto.ReservationDto;
+import org.example.carrentapp.entity.Car;
 import org.example.carrentapp.entity.Reservation;
+import org.example.carrentapp.entity.User;
+import org.example.carrentapp.repository.CarRepository;
 import org.example.carrentapp.repository.ReservationRepository;
+import org.example.carrentapp.repository.UserRepository;
 import org.example.carrentapp.service.ReservationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,121 +19,198 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.util.*;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ReservationServiceTest {
 
     @Mock
-    private ReservationRepository repo;
+    private ReservationRepository reservationRepo;
+
+    @Mock
+    private CarRepository carRepo;
+
+    @Mock
+    private UserRepository userRepo;
 
     @InjectMocks
     private ReservationService reservationService;
 
-    private Reservation sample;
+    private Car sampleCar;
+    private User sampleUser;
+    private Reservation sampleReservation;
 
     @BeforeEach
     void setUp() {
-        sample = new Reservation();
-        sample.setId(1L);
-        sample.setStartDate(LocalDate.of(2025, 6, 1));
-        sample.setEndDate(LocalDate.of(2025, 6, 10));
+        // przygotuj encje Car
+        sampleCar = new Car();
+        sampleCar.setId(1L);
+        sampleCar.setAvailable(true);
+
+        // przygotuj encję User
+        sampleUser = new User();
+        sampleUser.setId(2L);
+        sampleUser.setUsername("jan");
+        sampleUser.setEmail("jan@example.com");
+        sampleUser.setPassword("pwd");
+
+        // przygotuj encję Reservation
+        sampleReservation = new Reservation();
+        sampleReservation.setId(3L);
+        sampleReservation.setCar(sampleCar);
+        sampleReservation.setUser(sampleUser);
+        sampleReservation.setStartDate(LocalDate.of(2025, 6, 1));
+        sampleReservation.setEndDate(LocalDate.of(2025, 6, 10));
+    }
+
+    @Test
+    void createReservation_shouldSaveAndReturnId() {
+        // given
+        ReservationDto dto = new ReservationDto();
+        dto.setCarId(sampleCar.getId());
+        dto.setUserId(sampleUser.getId());
+        dto.setStartDate(sampleReservation.getStartDate());
+        dto.setEndDate(sampleReservation.getEndDate());
+
+        when(carRepo.findById(dto.getCarId())).thenReturn(Optional.of(sampleCar));
+        when(userRepo.findById(dto.getUserId())).thenReturn(Optional.of(sampleUser));
+        // service ustawi available=false i zapisze car
+        when(carRepo.save(sampleCar)).thenReturn(sampleCar);
+        // repo.save zwraca sampleReservation
+        when(reservationRepo.save(any(Reservation.class))).thenReturn(sampleReservation);
+
+        // when
+        Long result = reservationService.createReservation(dto);
+
+        // then
+        assertThat(result).isEqualTo(sampleReservation.getId());
+        assertThat(sampleCar.isAvailable()).isFalse();
+        verify(carRepo).save(sampleCar);
+        verify(reservationRepo).save(any(Reservation.class));
+    }
+
+    @Test
+    void createReservation_carNotFound_shouldThrow() {
+        ReservationDto dto = new ReservationDto();
+        dto.setCarId(99L);
+        dto.setUserId(sampleUser.getId());
+
+        when(carRepo.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> reservationService.createReservation(dto))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("Car not found");
+    }
+
+    @Test
+    void createReservation_userNotFound_shouldThrow() {
+        ReservationDto dto = new ReservationDto();
+        dto.setCarId(sampleCar.getId());
+        dto.setUserId(42L);
+
+        when(carRepo.findById(dto.getCarId())).thenReturn(Optional.of(sampleCar));
+        when(userRepo.findById(42L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> reservationService.createReservation(dto))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("User not found");
+    }
+
+    @Test
+    void createReservation_carNotAvailable_shouldThrow() {
+        sampleCar.setAvailable(false);
+
+        ReservationDto dto = new ReservationDto();
+        dto.setCarId(sampleCar.getId());
+        dto.setUserId(sampleUser.getId());
+
+        when(carRepo.findById(dto.getCarId())).thenReturn(Optional.of(sampleCar));
+
+
+        assertThatThrownBy(() -> reservationService.createReservation(dto))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Car is already reserved");
     }
 
     @Test
     void getAllReservations_shouldReturnListFromRepo() {
-        List<Reservation> list = Collections.singletonList(sample);
-        when(repo.findAll()).thenReturn(list);
+        List<Reservation> list = Collections.singletonList(sampleReservation);
+        when(reservationRepo.findAll()).thenReturn(list);
 
         List<Reservation> result = reservationService.getAllReservations();
 
         assertThat(result).isSameAs(list);
-        verify(repo).findAll();
-    }
-
-    @Test
-    void createReservation_shouldSaveAndReturn() {
-        Reservation toCreate = new Reservation();
-        toCreate.setStartDate(LocalDate.of(2025, 7, 1));
-        toCreate.setEndDate(LocalDate.of(2025, 7, 5));
-
-        Reservation saved = new Reservation();
-        saved.setId(2L);
-        saved.setStartDate(toCreate.getStartDate());
-        saved.setEndDate(toCreate.getEndDate());
-
-        when(repo.save(toCreate)).thenReturn(saved);
-
-        Reservation result = reservationService.createReservation(toCreate);
-
-        assertThat(result).isEqualTo(saved);
-        verify(repo).save(toCreate);
+        verify(reservationRepo).findAll();
     }
 
     @Test
     void getReservationById_whenExists_shouldReturn() {
-        when(repo.findById(1L)).thenReturn(Optional.of(sample));
+        when(reservationRepo.findById(3L)).thenReturn(Optional.of(sampleReservation));
 
-        Reservation result = reservationService.getReservationById(1L);
+        Reservation result = reservationService.getReservationById(3L);
 
-        assertThat(result).isSameAs(sample);
-        verify(repo).findById(1L);
+        assertThat(result).isSameAs(sampleReservation);
+        verify(reservationRepo).findById(3L);
     }
 
     @Test
     void getReservationById_whenNotExists_shouldReturnNull() {
-        when(repo.findById(99L)).thenReturn(Optional.empty());
+        when(reservationRepo.findById(50L)).thenReturn(Optional.empty());
 
-        Reservation result = reservationService.getReservationById(99L);
+        Reservation result = reservationService.getReservationById(50L);
 
         assertThat(result).isNull();
-        verify(repo).findById(99L);
+        verify(reservationRepo).findById(50L);
     }
 
     @Test
-    void updateReservation_whenExists_shouldModifyAndSave() {
-        Reservation payload = new Reservation();
-        payload.setStartDate(LocalDate.of(2025, 8, 1));
-        payload.setEndDate(LocalDate.of(2025, 8, 15));
+    void updateReservation_whenExists_shouldModifyDatesAndSave() {
+        ReservationDto dto = new ReservationDto();
+        dto.setStartDate(LocalDate.of(2025, 7, 1));
+        dto.setEndDate(LocalDate.of(2025, 7, 5));
 
-        when(repo.findById(1L)).thenReturn(Optional.of(sample));
-        when(repo.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reservationRepo.findById(3L)).thenReturn(Optional.of(sampleReservation));
+        when(reservationRepo.save(sampleReservation)).thenReturn(sampleReservation);
 
-        Reservation result = reservationService.updateReservation(1L, payload);
+        Reservation result = reservationService.updateReservation(3L, dto);
 
-        assertThat(result.getStartDate()).isEqualTo(payload.getStartDate());
-        assertThat(result.getEndDate()).isEqualTo(payload.getEndDate());
-        verify(repo).save(sample);
+        assertThat(result.getStartDate()).isEqualTo(dto.getStartDate());
+        assertThat(result.getEndDate()).isEqualTo(dto.getEndDate());
+        verify(reservationRepo).save(sampleReservation);
     }
 
     @Test
     void updateReservation_whenNotExists_shouldReturnNull() {
-        when(repo.findById(50L)).thenReturn(Optional.empty());
+        ReservationDto dto = new ReservationDto();
+        dto.setStartDate(LocalDate.now());
+        dto.setEndDate(LocalDate.now().plusDays(1));
 
-        Reservation result = reservationService.updateReservation(50L, new Reservation());
+        when(reservationRepo.findById(99L)).thenReturn(Optional.empty());
+
+        Reservation result = reservationService.updateReservation(99L, dto);
 
         assertThat(result).isNull();
-        verify(repo, never()).save(any());
+        verify(reservationRepo, never()).save(any());
     }
 
     @Test
     void deleteReservation_whenExists_shouldDeleteAndReturnTrue() {
-        when(repo.existsById(1L)).thenReturn(true);
+        when(reservationRepo.existsById(3L)).thenReturn(true);
 
-        boolean result = reservationService.deleteReservation(1L);
+        boolean deleted = reservationService.deleteReservation(3L);
 
-        assertThat(result).isTrue();
-        verify(repo).deleteById(1L);
+        assertThat(deleted).isTrue();
+        verify(reservationRepo).deleteById(3L);
     }
 
     @Test
     void deleteReservation_whenNotExists_shouldReturnFalse() {
-        when(repo.existsById(100L)).thenReturn(false);
+        when(reservationRepo.existsById(100L)).thenReturn(false);
 
-        boolean result = reservationService.deleteReservation(100L);
+        boolean deleted = reservationService.deleteReservation(100L);
 
-        assertThat(result).isFalse();
-        verify(repo, never()).deleteById(anyLong());
+        assertThat(deleted).isFalse();
+        verify(reservationRepo, never()).deleteById(anyLong());
     }
 }

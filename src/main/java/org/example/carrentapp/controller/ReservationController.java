@@ -3,6 +3,7 @@ package org.example.carrentapp.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.example.carrentapp.dto.ReservationDto;
 import org.example.carrentapp.entity.Reservation;
 import org.example.carrentapp.service.ReservationService;
 import org.springframework.http.ResponseEntity;
@@ -31,13 +32,13 @@ public class ReservationController {
 
     @PostMapping
     @Operation(summary = "Create a new reservation", description = "Adds a new reservation to the database.")
-    public ResponseEntity<Reservation> createReservation(@RequestBody Reservation reservation) {
-        Reservation created = reservationService.createReservation(reservation);
+    public ResponseEntity<Void> createReservation(@RequestBody ReservationDto dto) {
+        Long newId = reservationService.createReservation(dto);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
-                .buildAndExpand(created.getId())
+                .buildAndExpand(newId)
                 .toUri();
-        return ResponseEntity.created(location).body(created);
+        return ResponseEntity.created(location).build();
     }
 
     @GetMapping("/{id}")
@@ -53,9 +54,9 @@ public class ReservationController {
     @Operation(summary = "Update reservation", description = "Updates dates of an existing reservation.")
     public ResponseEntity<Reservation> updateReservation(
             @PathVariable Long id,
-            @RequestBody Reservation payload
+            @RequestBody ReservationDto dto             // <-- tu było Reservation, musi być ReservationDto
     ) {
-        Reservation updated = reservationService.updateReservation(id, payload);
+        Reservation updated = reservationService.updateReservation(id, dto);
         return updated != null
                 ? ResponseEntity.ok(updated)
                 : ResponseEntity.notFound().build();
@@ -64,7 +65,9 @@ public class ReservationController {
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete reservation", description = "Deletes a reservation by ID.")
     public ResponseEntity<Void> deleteReservation(@PathVariable Long id) {
-        reservationService.deleteReservation(id);
-        return ResponseEntity.ok().build();
+        boolean deleted = reservationService.deleteReservation(id);
+        return deleted
+                ? ResponseEntity.ok().build()
+                : ResponseEntity.notFound().build();
     }
 }

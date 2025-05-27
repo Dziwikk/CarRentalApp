@@ -1,6 +1,9 @@
+// src/main/java/org/example/carrentapp/entity/User.java
 package org.example.carrentapp.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,6 +17,7 @@ import java.util.Set;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,7 +26,9 @@ public class User {
     @Column(nullable = false, unique = true, length = 255)
     private String username;
 
-    @JsonIgnore
+    // przy serializacji JSON pole password zostanie pominięte,
+    // przy deserializacji (POST/PUT) będzie brane pod uwagę
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String password;
 

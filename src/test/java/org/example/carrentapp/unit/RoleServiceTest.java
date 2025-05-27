@@ -1,4 +1,4 @@
-package org.example.carrentapp.all;
+package org.example.carrentapp.unit;
 
 import org.example.carrentapp.entity.Role;
 import org.example.carrentapp.repository.RoleRepository;

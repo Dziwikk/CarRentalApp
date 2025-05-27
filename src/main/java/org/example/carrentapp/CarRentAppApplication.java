@@ -4,6 +4,7 @@ package org.example.carrentapp;
 import org.example.carrentapp.entity.*;
         import org.example.carrentapp.repository.*;
 
+
         import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;

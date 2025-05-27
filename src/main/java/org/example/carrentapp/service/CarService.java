@@ -45,4 +45,9 @@ public class CarService {
         }
         return false;
     }
+
+    // <<< nowa metoda >>>
+    public List<Car> findAvailableCars() {
+        return repo.findByAvailableTrue();
+    }
 }

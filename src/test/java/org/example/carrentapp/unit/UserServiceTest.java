@@ -1,4 +1,4 @@
-package org.example.carrentapp.all;
+package org.example.carrentapp.unit;
 
 import org.example.carrentapp.entity.User;
 import org.example.carrentapp.repository.UserRepository;
@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.*;
 
@@ -17,11 +18,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
-    @Mock
-    private UserRepository repo;
-
-    @InjectMocks
-    private UserService userService;
+    @Mock private UserRepository repo;
+    @Mock private PasswordEncoder encoder;
+    @InjectMocks private UserService userService;
 
     private User sampleUser;
 
@@ -34,37 +33,44 @@ class UserServiceTest {
     }
 
     @Test
+    void createUser_shouldIgnoreClientIdAndHashPasswordAndSave() {
+        // 🔐 Stubbing tylko tu, bo tylko ten test potrzebuje encoder.encode
+        when(encoder.encode(any(CharSequence.class))).thenReturn("HASHED");
+
+        User incoming = new User();
+        incoming.setId(99L);
+        incoming.setUsername("bob");
+        incoming.setEmail("bob@example.com");
+        incoming.setPassword("rawpass");
+
+        User saved = new User();
+        saved.setId(2L);
+        saved.setUsername("bob");
+        saved.setEmail("bob@example.com");
+        saved.setPassword("HASHED");
+
+        when(repo.save(any(User.class))).thenReturn(saved);
+
+        User result = userService.createUser(incoming);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(repo).save(captor.capture());
+        User toSave = captor.getValue();
+
+        assertThat(toSave.getId()).isNull();
+        assertThat(toSave.getPassword()).isEqualTo("HASHED");
+        assertThat(result).isEqualTo(saved);
+    }
+
+    @Test
     void getAllUsers_shouldReturnListFromRepo() {
-        List<User> users = Arrays.asList(sampleUser);
+        List<User> users = List.of(sampleUser);
         when(repo.findAll()).thenReturn(users);
 
         List<User> result = userService.getAllUsers();
 
         assertThat(result).isSameAs(users);
         verify(repo).findAll();
-    }
-
-    @Test
-    void createUser_shouldIgnoreClientIdAndSave() {
-        User incoming = new User();
-        incoming.setId(99L);
-        incoming.setUsername("bob");
-        incoming.setEmail("bob@example.com");
-
-        User saved = new User();
-        saved.setId(2L);
-        saved.setUsername("bob");
-        saved.setEmail("bob@example.com");
-
-        when(repo.save(any(User.class))).thenReturn(saved);
-
-        User result = userService.createUser(incoming);
-
-        // incoming id must be nulled before save
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(repo).save(captor.capture());
-        assertThat(captor.getValue().getId()).isNull();
-        assertThat(result).isEqualTo(saved);
     }
 
     @Test

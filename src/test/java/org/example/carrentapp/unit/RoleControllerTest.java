@@ -1,4 +1,4 @@
-package org.example.carrentapp.all;
+package org.example.carrentapp.unit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.carrentapp.controller.RoleController;

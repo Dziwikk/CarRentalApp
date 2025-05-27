@@ -1,4 +1,5 @@
-package org.example.carrentapp.all;
+// src/test/java/org/example/carrentapp/unit/CarServiceTest.java
+package org.example.carrentapp.unit;
 
 import org.example.carrentapp.entity.Car;
 import org.example.carrentapp.repository.CarRepository;
@@ -44,6 +45,19 @@ class CarServiceTest {
 
         assertThat(result).isSameAs(cars);
         verify(repo).findAll();
+    }
+
+    @Test
+    void findAvailableCars_shouldReturnOnlyAvailable() {
+        Car a = new Car(); a.setId(2L); a.setAvailable(true);
+        Car b = new Car(); b.setId(3L); b.setAvailable(false);
+        List<Car> avail = Arrays.asList(a, sampleCar);
+        when(repo.findByAvailableTrue()).thenReturn(avail);
+
+        List<Car> result = carService.findAvailableCars();
+
+        assertThat(result).isSameAs(avail);
+        verify(repo).findByAvailableTrue();
     }
 
     @Test

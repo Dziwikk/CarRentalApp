@@ -1,4 +1,5 @@
-package org.example.carrentapp.all;
+// src/test/java/org/example/carrentapp/unit/CarControllerTest.java
+package org.example.carrentapp.unit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.carrentapp.controller.CarController;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -31,8 +33,11 @@ class CarControllerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        mvc = MockMvcBuilders.standaloneSetup(controller).build();
         mapper = new ObjectMapper();
+        mvc = MockMvcBuilders
+                .standaloneSetup(controller)
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(mapper))
+                .build();
 
         car = new Car();
         car.setId(5L);
@@ -49,6 +54,16 @@ class CarControllerTest {
         mvc.perform(get("/api/cars"))
                 .andExpect(status().isOk())
                 .andExpect(content().json(mapper.writeValueAsString(Collections.singletonList(car))));
+    }
+
+    @Test
+    void getAvailableCars_shouldReturnJsonArray() throws Exception {
+        Car a = new Car(); a.setId(6L); a.setMake("Audi"); a.setModel("A3"); a.setYear(2021); a.setAvailable(true);
+        when(carService.findAvailableCars()).thenReturn(Arrays.asList(car, a));
+
+        mvc.perform(get("/api/cars/available"))
+                .andExpect(status().isOk())
+                .andExpect(content().json(mapper.writeValueAsString(Arrays.asList(car, a))));
     }
 
     @Test
