@@ -13,11 +13,11 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EntityScan("org.example.carrentapp.entity")
 @EnableJpaRepositories("org.example.carrentapp.repository")
 
-public class CarRentAppAppApplication {
+public class CarRentAppApplication {
 
 
     public static void main(String[] args) {
-        SpringApplication.run(CarRentAppAppApplication.class, args);
+        SpringApplication.run(CarRentAppApplication.class, args);
     }
 
 }
