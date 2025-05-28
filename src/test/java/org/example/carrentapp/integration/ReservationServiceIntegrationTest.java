@@ -1,4 +1,3 @@
-// src/test/java/org/example/carrentapp/integration/ReservationServiceIntegrationTest.java
 package org.example.carrentapp.integration;
 
 import org.example.carrentapp.dto.ReservationDto;
@@ -80,7 +79,7 @@ class ReservationServiceIntegrationTest {
                 .containsExactly(car.getId(), user.getId());
 
         Car updated = carRepo.findById(car.getId()).orElseThrow();
-        assertThat(updated.isAvailable()).isFalse();
+        assertThat(updated.getAvailable()).isFalse(); // Zamieniamy isAvailable() na getAvailable()
     }
 
     @Test

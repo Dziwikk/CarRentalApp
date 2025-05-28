@@ -2,7 +2,10 @@ package org.example.carrentapp.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.example.carrentapp.available.IfAvailable;
 import org.example.carrentapp.entity.Car;
+import org.example.carrentapp.entity.LuxuryCar; // Dodajemy LuxuryCar
+import org.example.carrentapp.entity.EconomyCar; // Dodajemy EconomyCar
 import org.example.carrentapp.service.CarService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,8 +34,11 @@ public class CarController {
     @GetMapping("/available")
     @Operation(summary = "List available cars", description = "Retrieves only cars with available=true.")
     public ResponseEntity<List<Car>> getAvailableCars() {
-        return ResponseEntity.ok(carService.findAvailableCars());
+        // Używamy metody serwisu do pobrania dostępnych samochodów
+        List<Car> availableCars = carService.findAvailableCars();
+        return ResponseEntity.ok(availableCars);
     }
+
 
     @PostMapping
     @Operation(summary = "Create a new car", description = "Adds a new car to the database.")

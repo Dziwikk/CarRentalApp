@@ -73,13 +73,13 @@ class CarControllerIntegrationTest {
 
         Car[] avail = resp.getBody();
         assertThat(avail).hasSize(1);
-        assertThat(avail[0].isAvailable()).isTrue();
+        assertThat(avail[0].getAvailable()).isTrue(); // Zamieniamy isAvailable() na getAvailable()
         assertThat(avail[0].getMake()).isEqualTo("T");
     }
 
     @Test
     void getCarById_whenExists_shouldReturnCar() {
-        Car saved = carRepo.findAll().stream().filter(Car::isAvailable).findFirst().orElseThrow();
+        Car saved = carRepo.findAll().stream().filter(Car::getAvailable).findFirst().orElseThrow();
         ResponseEntity<Car> resp = userRest.getForEntity(base + "/" + saved.getId(), Car.class);
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody().getId()).isEqualTo(saved.getId());

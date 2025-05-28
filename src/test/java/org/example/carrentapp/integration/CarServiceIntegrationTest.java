@@ -1,4 +1,3 @@
-// src/test/java/org/example/carrentapp/integration/CarServiceIntegrationTest.java
 package org.example.carrentapp.integration;
 
 import org.example.carrentapp.entity.Car;
@@ -53,7 +52,7 @@ class CarServiceIntegrationTest {
         var all = carService.getAllCars();
         assertThat(all).hasSize(1)
                 .first()
-                .extracting(Car::getMake, Car::getModel, Car::getYear, Car::isAvailable)
+                .extracting(Car::getMake, Car::getModel, Car::getYear, Car::getAvailable)  // Zamieniamy isAvailable() na getAvailable()
                 .containsExactly("Tesla", "Model S", 2022, true);
     }
 
@@ -67,7 +66,7 @@ class CarServiceIntegrationTest {
         var avail = carService.findAvailableCars();
         assertThat(avail).hasSize(1)
                 .first()
-                .extracting(Car::getModel, Car::isAvailable)
+                .extracting(Car::getModel, Car::getAvailable)  // Zamieniamy isAvailable() na getAvailable()
                 .containsExactly("A1", true);
     }
 
@@ -83,8 +82,8 @@ class CarServiceIntegrationTest {
         Car payload = new Car();
         payload.setMake("Z"); payload.setModel("W"); payload.setYear(2018); payload.setAvailable(false);
         var updated = carService.updateCar(saved.getId(), payload);
-        assertThat(updated).extracting(Car::getMake, Car::getModel, Car::getYear, Car::isAvailable)
-                .containsExactly("Z","W",2018,false);
+        assertThat(updated).extracting(Car::getMake, Car::getModel, Car::getYear, Car::getAvailable)  // Zamieniamy isAvailable() na getAvailable()
+                .containsExactly("Z", "W", 2018, false);
 
         boolean deleted = carService.deleteCar(saved.getId());
         assertThat(deleted).isTrue();

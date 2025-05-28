@@ -58,13 +58,22 @@ class CarControllerTest {
 
     @Test
     void getAvailableCars_shouldReturnJsonArray() throws Exception {
-        Car a = new Car(); a.setId(6L); a.setMake("Audi"); a.setModel("A3"); a.setYear(2021); a.setAvailable(true);
-        when(carService.findAvailableCars()).thenReturn(Arrays.asList(car, a));
+        // Przygotowanie dwóch samochodów
+        Car a = new Car();
+        a.setId(6L);
+        a.setMake("Audi");
+        a.setModel("A3");
+        a.setYear(2021);
+        a.setAvailable(true);
 
+        when(carService.findAvailableCars()).thenReturn(Arrays.asList(car, a));  // Używamy mockowanego wyniku
+
+        // Wykonanie zapytania i porównanie wyników
         mvc.perform(get("/api/cars/available"))
                 .andExpect(status().isOk())
-                .andExpect(content().json(mapper.writeValueAsString(Arrays.asList(car, a))));
+                .andExpect(content().json(mapper.writeValueAsString(Arrays.asList(car, a))));  // Używamy poprawnego formatu JSON
     }
+
 
     @Test
     void createCar_shouldReturnCreatedWithLocationHeader() throws Exception {

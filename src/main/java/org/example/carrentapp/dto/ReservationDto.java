@@ -9,6 +9,7 @@ import java.time.LocalDate;
 
 @Getter @Setter @NoArgsConstructor
 public class ReservationDto {
+    private Long id;        // <-- dodaj to
     private Long carId;
     private Long userId;
     private LocalDate startDate;

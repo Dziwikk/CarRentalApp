@@ -1,4 +1,3 @@
-// src/test/java/org/example/carrentapp/unit/ReservationServiceTest.java
 package org.example.carrentapp.unit;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -85,7 +84,7 @@ class ReservationServiceTest {
 
         // then
         assertThat(result).isEqualTo(sampleReservation.getId());
-        assertThat(sampleCar.isAvailable()).isFalse();
+        assertThat(sampleCar.getAvailable()).isFalse(); // Zamieniamy isAvailable() na getAvailable()
         verify(carRepo).save(sampleCar);
         verify(reservationRepo).save(any(Reservation.class));
     }
@@ -119,7 +118,7 @@ class ReservationServiceTest {
 
     @Test
     void createReservation_carNotAvailable_shouldThrow() {
-        sampleCar.setAvailable(false);
+        sampleCar.setAvailable(false); // Ustawiamy auto jako niedostępne
 
         ReservationDto dto = new ReservationDto();
         dto.setCarId(sampleCar.getId());
@@ -127,11 +126,14 @@ class ReservationServiceTest {
 
         when(carRepo.findById(dto.getCarId())).thenReturn(Optional.of(sampleCar));
 
-
+        // Oczekujemy, że zostanie rzucony wyjątek IllegalStateException
         assertThatThrownBy(() -> reservationService.createReservation(dto))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Car is already reserved");
     }
+
+
+
 
     @Test
     void getAllReservations_shouldReturnListFromRepo() {

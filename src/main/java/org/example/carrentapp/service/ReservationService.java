@@ -1,6 +1,6 @@
-// src/main/java/org/example/carrentapp/service/ReservationService.java
 package org.example.carrentapp.service;
 
+import org.example.carrentapp.available.IfAvailable;
 import org.example.carrentapp.dto.ReservationDto;
 import org.example.carrentapp.entity.Car;
 import org.example.carrentapp.entity.Reservation;
@@ -35,22 +35,24 @@ public class ReservationService {
 
     @Transactional
     public Long createReservation(ReservationDto dto) {
-        // 1) znajdź auto, zbłądź jeżeli brak
+        // 1) Znajdź samochód
         Car car = carRepo.findById(dto.getCarId())
                 .orElseThrow(() -> new EntityNotFoundException("Car not found: " + dto.getCarId()));
-        if (!car.isAvailable()) {
+
+        // 2) Sprawdź, czy samochód jest dostępny
+        if (!car.getAvailable()) {
             throw new IllegalStateException("Car is already reserved");
         }
 
-        // 2) znajdź użytkownika
+        // 3) Znajdź użytkownika
         User user = userRepo.findById(dto.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + dto.getUserId()));
 
-        // 3) oznacz auto jako zajęte
+        // 4) Zarezerwuj auto
         car.setAvailable(false);
-        carRepo.save(car);
+        carRepo.save(car); // Zapisujemy, że auto jest teraz niedostępne
 
-        // 4) stwórz rezerwację
+        // 5) Stwórz rezerwację
         Reservation res = new Reservation();
         res.setCar(car);
         res.setUser(user);
@@ -58,8 +60,10 @@ public class ReservationService {
         res.setEndDate(dto.getEndDate());
         Reservation saved = reservationRepo.save(res);
 
-        return saved.getId();
+        return saved.getId(); // Zwróć ID zapisanej rezerwacji
     }
+
+
 
     public Reservation getReservationById(Long id) {
         return reservationRepo.findById(id).orElse(null);

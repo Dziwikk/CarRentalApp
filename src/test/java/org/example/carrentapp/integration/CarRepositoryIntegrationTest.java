@@ -1,4 +1,3 @@
-// src/test/java/org/example/carrentapp/repository/CarRepositoryIntegrationTest.java
 package org.example.carrentapp.integration;
 
 import org.example.carrentapp.entity.Car;
@@ -53,7 +52,7 @@ class CarRepositoryIntegrationTest {
         List<Car> available = carRepository.findByAvailableTrue();
         assertThat(available)
                 .hasSize(1)
-                .allMatch(Car::isAvailable)
+                .allMatch(car -> car.getAvailable())  // Zamieniamy isAvailable() na getAvailable()
                 .extracting(Car::getModel)
                 .containsExactly("Corolla");
     }
@@ -68,7 +67,7 @@ class CarRepositoryIntegrationTest {
         List<Car> available = carRepository.findByAvailableTrue();
         assertThat(available)
                 .hasSize(2)
-                .allMatch(Car::isAvailable)
+                .allMatch(car -> car.getAvailable())  // Zamieniamy isAvailable() na getAvailable()
                 .extracting(Car::getModel)
                 .containsExactlyInAnyOrder("Civic", "A4");
     }

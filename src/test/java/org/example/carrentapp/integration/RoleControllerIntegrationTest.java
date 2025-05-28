@@ -50,7 +50,7 @@ class RoleControllerIntegrationTest {
     void setUp() {
         repo.deleteAll();
         base = "http://localhost:" + port + "/api/roles";
-        adminRest = rest.withBasicAuth("admin", "password");
+        adminRest = rest.withBasicAuth("admin", "password");  // Ensure you are using admin credentials here
     }
 
     @Test

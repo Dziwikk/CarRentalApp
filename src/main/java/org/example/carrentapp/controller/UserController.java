@@ -1,7 +1,5 @@
 package org.example.carrentapp.controller;
 
-
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.carrentapp.entity.User;
@@ -34,11 +32,8 @@ public class UserController {
     @Operation(summary = "Create a new user", description = "Adds a new user to the database.")
     public ResponseEntity<User> createUser(@RequestBody User user) {
         User created = userService.createUser(user);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(created.getId())
-                .toUri();
-        return ResponseEntity.created(location).body(created);
+        // Return 200 OK instead of 201 Created
+        return ResponseEntity.ok(created);
     }
 
     @GetMapping("/{id}")

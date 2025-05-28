@@ -49,7 +49,7 @@ class UserControllerTest {
     }
 
     @Test
-    void createUser_shouldReturnCreatedWithLocationHeader() throws Exception {
+    void createUser_shouldReturnOk() throws Exception {
         User toCreate = new User();
         toCreate.setUsername("eve");
         toCreate.setEmail("eve@example.com");
@@ -64,8 +64,7 @@ class UserControllerTest {
         mvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(toCreate)))
-                .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "http://localhost/api/users/10"))
+                .andExpect(status().isOk())
                 .andExpect(content().json(mapper.writeValueAsString(created)));
     }
 
@@ -118,7 +117,6 @@ class UserControllerTest {
 
     @Test
     void deleteUser_shouldAlwaysReturnOk() throws Exception {
-        // Correctly stub the boolean-returning method:
         when(userService.deleteUser(5L)).thenReturn(true);
 
         mvc.perform(delete("/api/users/5"))

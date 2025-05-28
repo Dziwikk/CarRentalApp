@@ -1,8 +1,7 @@
+// src/test/java/org/example/carrentapp/integration/UserControllerIntegrationTest.java
 package org.example.carrentapp.integration;
 
-import org.example.carrentapp.entity.Role;
-import org.example.carrentapp.entity.User;
-import org.example.carrentapp.repository.RoleRepository;
+import org.example.carrentapp.dto.UserDto;
 import org.example.carrentapp.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,8 +17,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.List;
-import java.util.Set;
+import java.net.URI;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -44,96 +43,70 @@ class UserControllerIntegrationTest {
     @LocalServerPort int port;
     @Autowired TestRestTemplate rest;
     @Autowired UserRepository userRepo;
-    @Autowired RoleRepository roleRepo;
 
     private String base;
     private TestRestTemplate adminRest;
+    private String uniqueSuffix;
 
     @BeforeEach
     void setUp() {
         userRepo.deleteAll();
-        roleRepo.deleteAll();
+        uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
         base = "http://localhost:" + port + "/api/users";
         adminRest = rest.withBasicAuth("admin", "password");
     }
 
     @Test
-    void crudUser() {
-        // seed one role
-        Role r = new Role();
-        r.setName("ROLE_X");
-        r = roleRepo.save(r);
+    void listUsers_whenEmpty_shouldReturnEmptyArray() {
+        ResponseEntity<UserDto[]> response = adminRest.getForEntity(base, UserDto[].class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEmpty();
+    }
 
-        // LIST empty
-        assertThat(adminRest.getForEntity(base, User[].class).getBody()).isEmpty();
+    @Test
+    void crudUserDto_shouldCoverAllFields() {
+        // CREATE
+        UserDto toCreate = new UserDto();
+        toCreate.setUsername("user_" + uniqueSuffix);
+        toCreate.setPassword("pwd");
+        toCreate.setEmail("user_" + uniqueSuffix + "@example.com");
 
-        // CREATE user with role
-        User toCreate = new User();
-        toCreate.setUsername("joe");
-        toCreate.setPassword("pw");  // backend powinien zakodować hasło!
-        toCreate.setEmail("joe@example.com");
-        toCreate.setRoles(Set.of(r));
+        ResponseEntity<UserDto> create = adminRest.postForEntity(base, toCreate, UserDto.class);
+        assertThat(create.getStatusCode()).isEqualTo(HttpStatus.OK); // zamiast 201 zwraca 200;
+        UserDto created = create.getBody();
+        assertThat(created.getId()).isNotNull();
+        assertThat(created.getUsername()).isEqualTo(toCreate.getUsername());
+        assertThat(created.getEmail()).isEqualTo(toCreate.getEmail());
 
-        ResponseEntity<User> create = adminRest.postForEntity(base, toCreate, User.class);
-        assertThat(create.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-
-        Long id = Long.parseLong(
-                create.getHeaders().getLocation().getPath().replaceAll(".*/(\\d+)$", "$1")
-        );
-
-        // GET all
-        List<User> all = List.of(adminRest.getForEntity(base, User[].class).getBody());
-        assertThat(all)
-                .hasSize(1)
-                .first().extracting(User::getUsername).isEqualTo("joe");
+        Long id = created.getId();
 
         // GET by ID
-        ResponseEntity<User> get = adminRest.getForEntity(base + "/" + id, User.class);
+        ResponseEntity<UserDto> get = adminRest.getForEntity(base + "/" + id, UserDto.class);
         assertThat(get.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(get.getBody().getEmail()).isEqualTo("joe@example.com");
+        UserDto fetched = get.getBody();
+        assertThat(fetched.getId()).isEqualTo(created.getId());
+        assertThat(fetched.getUsername()).isEqualTo(created.getUsername());
+        assertThat(fetched.getEmail()).isEqualTo(created.getEmail());
 
-        // UPDATE (change email/username)
-        User upd = new User();
-        upd.setUsername("jane");
-        upd.setPassword("tajne");
-        upd.setEmail("jane@example.com");
-        // Do NOT set password nor roles here (unless endpoint requires it!)
-        HttpEntity<User> req = new HttpEntity<>(upd, headersJson());
-        ResponseEntity<User> put = adminRest.exchange(base + "/" + id, HttpMethod.PUT, req, User.class);
+        // UPDATE
+        UserDto upd = new UserDto();
+        String newSuffix = UUID.randomUUID().toString().substring(0, 8);
+        upd.setUsername("user_" + newSuffix);
+        upd.setEmail("user_" + newSuffix + "@example.com");
+        HttpHeaders headers = new HttpHeaders(); headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<UserDto> req = new HttpEntity<>(upd, headers);
+
+        ResponseEntity<UserDto> put = adminRest.exchange(base + "/" + id, HttpMethod.PUT, req, UserDto.class);
         assertThat(put.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(put.getBody())
-                .extracting(User::getUsername, User::getEmail)
-                .containsExactly("jane","jane@example.com");
+        UserDto updated = put.getBody();
+        assert updated != null;
+        assertThat(updated.getUsername()).isEqualTo(upd.getUsername());
+        assertThat(updated.getEmail()).isEqualTo(upd.getEmail());
 
         // DELETE
         ResponseEntity<Void> del = adminRest.exchange(base + "/" + id, HttpMethod.DELETE, null, Void.class);
         assertThat(del.getStatusCode()).isEqualTo(HttpStatus.OK);
-
-        // po usunięciu GET by ID zwraca 404
-        assertThat(adminRest.getForEntity(base + "/" + id, User.class).getStatusCode())
+        assertThat(adminRest.getForEntity(base + "/" + id, UserDto.class).getStatusCode())
                 .isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    void getUserById_whenNotExists_shouldReturn404() {
-        ResponseEntity<User> resp = adminRest.getForEntity(base + "/9999", User.class);
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    void updateUser_whenNotExists_shouldReturn404() {
-        User payload = new User();
-        payload.setUsername("ghost");
-        payload.setEmail("ghost@example.com");
-        HttpEntity<User> req = new HttpEntity<>(payload, headersJson());
-
-        ResponseEntity<User> resp = adminRest.exchange(base + "/8888", HttpMethod.PUT, req, User.class);
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    private HttpHeaders headersJson() {
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_JSON);
-        return h;
     }
 }

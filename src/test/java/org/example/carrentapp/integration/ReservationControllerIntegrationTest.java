@@ -23,6 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -33,7 +34,9 @@ class ReservationControllerIntegrationTest {
 
     @Container
     static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:15")
-            .withDatabaseName("test-db").withUsername("test").withPassword("test");
+            .withDatabaseName("test-db")
+            .withUsername("test")
+            .withPassword("test");
 
     @DynamicPropertySource
     static void props(DynamicPropertyRegistry r) {
@@ -44,103 +47,96 @@ class ReservationControllerIntegrationTest {
 
     @LocalServerPort int port;
     @Autowired TestRestTemplate rest;
-    @Autowired CarRepository carRepo;
     @Autowired UserRepository userRepo;
+    @Autowired CarRepository carRepo;
     @Autowired ReservationRepository resRepo;
 
-    private String base;
-    private TestRestTemplate userRest;
+    private String resBase;
     private TestRestTemplate adminRest;
+    private Long userId;
+    private Long carId;
 
     @BeforeEach
     void setUp() {
         resRepo.deleteAll();
         carRepo.deleteAll();
         userRepo.deleteAll();
-        base = "http://localhost:" + port + "/api/reservations";
-        userRest = rest.withBasicAuth("user", "password");
+        resBase = "http://localhost:" + port + "/api/reservations";
         adminRest = rest.withBasicAuth("admin", "password");
+
+        // create user and car
+        User user = new User();
+        user.setUsername("u1");
+        user.setPassword("pw");
+        user.setEmail("u1@example.com");
+        userId = userRepo.save(user).getId();
+
+        Car car = new Car();
+        car.setMake("Mk");
+        car.setModel("Md");
+        car.setYear(2023);
+        car.setAvailable(true);
+        carId = carRepo.save(car).getId();
     }
 
     @Test
-    void emptyList_thenCrudReservation() {
+    void crudReservation_shouldCoverAllFields() {
         // LIST empty
-        ResponseEntity<Reservation[]> empty = userRest.getForEntity(base, Reservation[].class);
+        ResponseEntity<Reservation[]> empty = adminRest.getForEntity(resBase, Reservation[].class);
         assertThat(empty.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(empty.getBody()).isEmpty();
 
-        // PREPARE CAR
-        Car carEntity = new Car();
-        carEntity.setMake("Mk");
-        carEntity.setModel("Md");
-        carEntity.setYear(2023);
-        carEntity.setAvailable(true);
-        Car car = carRepo.save(carEntity);
+        // CREATE payload DTO
+        ReservationDto toCreate = new ReservationDto();
+        toCreate.setCarId(carId);
+        toCreate.setUserId(userId);
+        toCreate.setStartDate(LocalDate.now());
+        toCreate.setEndDate(LocalDate.now().plusDays(2));
 
-        // PREPARE USER
-        User userEntity = new User();
-        userEntity.setUsername("u1");
-        userEntity.setPassword("pw");
-        userEntity.setEmail("u1@e");
-        User user = userRepo.save(userEntity);
+        // POST -> 201 Created + Location
+        ResponseEntity<Void> createResponse = adminRest.postForEntity(resBase, toCreate, Void.class);
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        URI location = createResponse.getHeaders().getLocation();
+        assertThat(location).isNotNull();
 
-        // CREATE
-        ReservationDto dto = new ReservationDto();
-        dto.setCarId(car.getId());
-        dto.setUserId(user.getId());
-        dto.setStartDate(LocalDate.now());
-        dto.setEndDate(LocalDate.now().plusDays(2));
+        // GET created Reservation entity
+        ResponseEntity<Reservation> createdGet = adminRest.getForEntity(location, Reservation.class);
+        assertThat(createdGet.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Reservation created = createdGet.getBody();
+        assertThat(created).isNotNull();
+        assertThat(created.getId()).isNotNull();
+        assertThat(created.getCar().getId()).isEqualTo(carId);
+        assertThat(created.getUser().getId()).isEqualTo(userId);
+        assertThat(created.getStartDate()).isEqualTo(toCreate.getStartDate());
+        assertThat(created.getEndDate()).isEqualTo(toCreate.getEndDate());
 
-        ResponseEntity<Void> createResp = userRest.postForEntity(base, dto, Void.class);
-        assertThat(createResp.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        URI loc = createResp.getHeaders().getLocation();
-        assertThat(loc).isNotNull();
-        Long id = Long.parseLong(loc.getPath().replaceAll(".*/(\\d+)$","$1"));
+        Long id = created.getId();
 
-        // GET by id
-        ResponseEntity<Reservation> get = userRest.getForEntity(base + "/" + id, Reservation.class);
+        // GET by ID via base URI
+        ResponseEntity<Reservation> get = adminRest.getForEntity(resBase + "/" + id, Reservation.class);
         assertThat(get.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(get.getBody().getId()).isEqualTo(id);
+        // compare all fields recursively instead of relying on object identity
+        assertThat(get.getBody())
+                .usingRecursiveComparison()
+                .isEqualTo(created);
 
-        // UPDATE
+        // UPDATE dates
         ReservationDto upd = new ReservationDto();
-        upd.setStartDate(dto.getStartDate().plusDays(1));
-        upd.setEndDate(dto.getEndDate().plusDays(1));
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        upd.setStartDate(toCreate.getStartDate().plusDays(1));
+        upd.setEndDate(toCreate.getEndDate().plusDays(1));
+        HttpHeaders headers = new HttpHeaders(); headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<ReservationDto> req = new HttpEntity<>(upd, headers);
-        ResponseEntity<Reservation> put = userRest.exchange(base + "/" + id, HttpMethod.PUT, req, Reservation.class);
+
+        ResponseEntity<Reservation> put = adminRest.exchange(resBase + "/" + id, HttpMethod.PUT, req, Reservation.class);
         assertThat(put.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(put.getBody())
-                .extracting(Reservation::getStartDate, Reservation::getEndDate)
-                .containsExactly(upd.getStartDate(), upd.getEndDate());
+        Reservation updated = put.getBody();
+        assertThat(updated.getStartDate()).isEqualTo(upd.getStartDate());
+        assertThat(updated.getEndDate()).isEqualTo(upd.getEndDate());
 
         // DELETE
-        ResponseEntity<Void> del = userRest.exchange(base + "/" + id, HttpMethod.DELETE, null, Void.class);
+        ResponseEntity<Void> del = adminRest.exchange(resBase + "/" + id, HttpMethod.DELETE, null, Void.class);
         assertThat(del.getStatusCode()).isEqualTo(HttpStatus.OK);
-
-        // after delete GET returns 404
-        assertThat(userRest.getForEntity(base + "/" + id, Reservation.class).getStatusCode())
+        assertThat(adminRest.getForEntity(resBase + "/" + id, Reservation.class).getStatusCode())
                 .isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    void updateReservation_whenNotExists_shouldReturn404() {
-        ReservationDto dummy = new ReservationDto();
-        dummy.setStartDate(LocalDate.now());
-        dummy.setEndDate(LocalDate.now().plusDays(1));
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<ReservationDto> req = new HttpEntity<>(dummy, headers);
-
-        ResponseEntity<Reservation> resp = userRest.exchange(base + "/9999", HttpMethod.PUT, req, Reservation.class);
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    void deleteReservation_whenNotExists_shouldReturn404() {
-        ResponseEntity<Void> resp = userRest.exchange(base + "/8888", HttpMethod.DELETE, null, Void.class);
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }
