@@ -18,7 +18,7 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
-public class Car implements IfAvailable { // Dodaj implementację interfejsu
+public class Car implements IfAvailable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
