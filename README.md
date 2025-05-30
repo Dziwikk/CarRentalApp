@@ -45,7 +45,7 @@ src/
 │  │  ├─ dto/             # Obiekty DTO (LoginDto, ReservationDto, UserDto)
 │  │  └─ security/        # Konfiguracja Spring Security, OpenAPI
 │  └─ resources/
-│     ├─ application.yml  # Konfiguracja aplikacji
+│     ├─ application.properties  # Konfiguracja aplikacji
 │     └─ db/migration/    # Skrypty Flyway (V1__init.sql)
 └─ test/                  # Testy jednostkowe i integracyjne
 Dockerfile
